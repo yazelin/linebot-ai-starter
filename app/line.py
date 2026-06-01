@@ -1,8 +1,18 @@
-import base64, hashlib, hmac, httpx
-from .config import LINE_CHANNEL_SECRET, LINE_CHANNEL_ACCESS_TOKEN
+import base64, hashlib, hmac, os, httpx
+from .config import LINE_CHANNEL_SECRET, LINE_CHANNEL_ACCESS_TOKEN, AI_PROVIDER
 from .ai import ask_ai
 def verify_signature(body, signature):
-    if not LINE_CHANNEL_SECRET: return True
+    # SECURITY: fail-closed by default.
+    # If no channel secret is configured we cannot verify the LINE signature.
+    # Accepting such requests would let anyone forge a webhook call, so we only
+    # allow it through in an explicit local dev / echo context:
+    #   - AI_PROVIDER == "echo"          (harmless echo bot, no real AI/secrets)
+    #   - LINE_ALLOW_INSECURE == "1"     (operator explicitly opted in)
+    # In any real provider mode without a secret we REJECT (return False).
+    if not LINE_CHANNEL_SECRET:
+        if AI_PROVIDER == "echo" or os.getenv("LINE_ALLOW_INSECURE") == "1":
+            return True
+        return False
     expected=base64.b64encode(hmac.new(LINE_CHANNEL_SECRET.encode(),body,hashlib.sha256).digest()).decode()
     return hmac.compare_digest(expected, signature)
 async def handle_events(payload):

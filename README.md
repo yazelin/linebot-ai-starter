@@ -13,6 +13,16 @@ A minimal LINE Messaging API bot with AI provider adapters.
 - CTA 頁：https://yazelin.github.io/linebot-ai-starter/
 
 
+
+## 公開教學文件
+
+這個 repo 的教學內容直接公開，讓你可以先自己照著跑；如果需要手把手 debug、改成你的公司或個人場景，再考慮工作坊或顧問協助。
+
+- 網頁版教學：https://yazelin.github.io/linebot-ai-starter/tutorial.html
+- Markdown 教學：[`docs/`](docs/)
+- 快速開始：[`docs/01-quickstart.md`](docs/01-quickstart.md)
+- 常見踩雷：[`docs/05-common-pitfalls.md`](docs/05-common-pitfalls.md)
+
 ## Who this is for
 
 Teams in Taiwan/Japan that want LINE-based AI workflow assistants.

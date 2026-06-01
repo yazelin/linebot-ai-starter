@@ -1,3 +1,5 @@
+![Brand banner](assets/banner.svg)
+
 # LINE Bot AI Starter
 
 A minimal LINE Messaging API bot with AI provider adapters.
@@ -35,3 +37,11 @@ This repo is also a CTA page for workshops and consulting:
 ## License
 
 MIT
+
+
+## Brand / CTA design
+
+- Landing page: https://yazelin.github.io/linebot-ai-starter/
+- CI spec: [DESIGN.md](DESIGN.md)
+- Banner: [assets/banner.svg](assets/banner.svg)
+- Logo: [assets/logo.svg](assets/logo.svg)

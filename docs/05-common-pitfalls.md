@@ -7,6 +7,7 @@
 - 沒有 LINE_CHANNEL_ACCESS_TOKEN 時，程式可以收 webhook 但無法回覆。
 - 本機測試 webhook 需要 HTTPS tunnel，例如 Cloudflare Tunnel 或 ngrok。
 - 正式環境要避免把使用者個資直接送到第三方 LLM。
+- **絕對不要在沒有設定 LINE_CHANNEL_SECRET 的情況下部署。** 從現在起簽章驗證預設 fail-closed：未設密鑰時，除了 `AI_PROVIDER=echo` 或明確設定 `LINE_ALLOW_INSECURE=1` 的本機開發情境外，所有 webhook 請求一律回 403 拒絕。沒有密鑰任何人都能偽造 LINE 的 webhook 呼叫，因此正式部署一定要設好真正的 channel secret。
 
 ## Debug 順序
 

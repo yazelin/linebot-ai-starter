@@ -25,56 +25,62 @@
 <li>付費工作坊：手把手解問題、看你的程式與設定、一起改成你的使用場景。</li>
 <li>企業顧問：需求訪談、PoC、部署、權限、安全與維運規劃。</li>
 </ul></section><section><h2>LINE Bot AI 入門模板：快速開始</h2>
-<h3>前置需求</h3>
-<ul>
-<li>Python 3.10+</li>
-<li>Git</li>
-<li>可以使用終端機</li>
-<li>如果要接真實 AI 或平台 token，請準備對應帳號與 API key。</li>
-</ul>
-<h3>最短路徑</h3>
-<ol>
-<li>建立 LINE Messaging API channel</li>
-<li>設定 LINE_CHANNEL_SECRET 與 LINE_CHANNEL_ACCESS_TOKEN</li>
-<li>本機啟動 FastAPI</li>
-<li>把公開 HTTPS URL 填到 LINE webhook</li>
-</ol>
-<h3>安裝與啟動</h3>
-<pre><code>
-git clone https://github.com/yazelin/linebot-ai-starter.git
-
+<p class="muted">本機這一段（安裝、啟動、簽章驗證）完全不需要 LINE 帳號。要讓真的 LINE 使用者收到回覆，才需要你自己的 channel。</p>
+<h3>第一步：取得程式碼並建立虛擬環境</h3>
+<pre><code>git clone https://github.com/yazelin/linebot-ai-starter.git
 cd linebot-ai-starter
-
 python -m venv .venv
-
 source .venv/bin/activate
-
-pip install -r requirements.txt
-
-cp .env.example .env
-
-# 編輯 .env：LINE_CHANNEL_SECRET、LINE_CHANNEL_ACCESS_TOKEN、AI_PROVIDER
-
-uvicorn app.main:app --reload --port 8000
-
-</code></pre>
-<h3>健康檢查</h3>
-<pre><code>
-curl http://127.0.0.1:8000/health
-
-</code></pre>
-<h3>常用入口</h3>
+pip install -r requirements.txt</code></pre>
+<h3>第二步：準備環境變數</h3>
+<pre><code>cp .env.example .env</code></pre>
+<p>第一次先不要動，保持 <code>AI_PROVIDER=echo</code>。echo 模式不需要任何金鑰，最適合確認整條路通不通。</p>
+<h3>第三步：啟動服務</h3>
+<pre><code>uvicorn app.main:app --reload --port 8000</code></pre>
+<p>成功的話你會看到（本機實際輸出）：</p>
+<pre><code>INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)</code></pre>
+<h3>第四步：健康檢查</h3>
+<pre><code>curl http://127.0.0.1:8000/health</code></pre>
+<p>成功的話你會看到：</p>
+<pre><code>{"ok":true}</code></pre>
+<h3>第五步：本機模擬簽章驗證（不用 LINE 帳號）</h3>
+<p>LINE webhook 會附 <code>X-Line-Signature</code>，是用 channel secret 對 raw body 做 HMAC-SHA256 再 base64。我們可以在本機自己算一個正確簽章證明它有效。把下面存成 <code>sig_demo.py</code>：</p>
+<pre><code>import base64, hashlib, hmac, json, os
+os.environ["LINE_CHANNEL_SECRET"] = "test_secret_123"
+os.environ["LINE_CHANNEL_ACCESS_TOKEN"] = "dummy"
+os.environ["AI_PROVIDER"] = "echo"
+from fastapi.testclient import TestClient
+from app.main import app
+client = TestClient(app)
+body = json.dumps({"events": []}).encode("utf-8")
+def sign(secret, raw):
+    return base64.b64encode(hmac.new(secret.encode(), raw, hashlib.sha256).digest()).decode()
+good = sign("test_secret_123", body); bad = sign("WRONG_secret", body)
+print("[valid]  ", client.post("/webhook/line", content=body, headers={"X-Line-Signature": good}).status_code)
+print("[wrong]  ", client.post("/webhook/line", content=body, headers={"X-Line-Signature": bad}).status_code)
+print("[missing]", client.post("/webhook/line", content=body).status_code)</code></pre>
+<p>執行 <code>python sig_demo.py</code>，本機模擬簽章驗證的真實輸出（本機模擬，不是真的 LINE 呼叫）：</p>
+<pre><code>[valid]   200
+[wrong]   403
+[missing] 403</code></pre>
+<p>正確簽章放行、錯誤或沒帶簽章擋掉，證明簽章驗證真的在擋人。</p>
+<h3>本機到此你已驗證</h3>
 <ul>
-<li>GET /health：健康檢查</li>
-<li>POST /webhook/line：LINE Messaging API webhook</li>
+<li>服務能啟動（看到 <code>Application startup complete.</code>）</li>
+<li><code>/health</code> 回 <code>{"ok":true}</code></li>
+<li>簽章正確放行、錯誤擋掉（200 / 403）</li>
+<li>secret 沒有 commit 進 GitHub（<code>.env</code> 已被 <code>.gitignore</code> 排除）</li>
 </ul>
-<h3>第一次成功的標準</h3>
-<ul>
-<li>服務能啟動</li>
-<li>基本 endpoint 有回應</li>
-<li>範例流程能跑通</li>
-<li>秘密 token 沒有 commit 到 GitHub</li>
-</ul></section><section><h2>LINE Bot AI 入門模板：架構說明</h2>
+<h3>要讓真的 LINE 使用者收到回覆（需要你自己的 channel）</h3>
+<ol>
+<li>到 LINE Developers console 建一個 Messaging API channel。</li>
+<li>把 Channel secret 填 <code>LINE_CHANNEL_SECRET</code>、Channel access token 填 <code>LINE_CHANNEL_ACCESS_TOKEN</code>。</li>
+<li>用 <code>ngrok http 8000</code> 開一條公開 HTTPS 通道，拿到像 <code>https://xxxx.ngrok-free.app</code> 的網址。</li>
+<li>在 console 把 Webhook URL 設成 <code>https://xxxx.ngrok-free.app/webhook/line</code>，打開 Use webhook、關掉 Auto-reply。</li>
+<li>設好你的 channel access token 後，加 bot 為好友傳訊息，會收到 <code>LINE AI echo: 你打的字</code>。</li>
+</ol>
+<p class="muted">回覆透過 <code>POST https://api.line.me/v2/bot/message/reply</code> 加 Bearer token 送出，一定要有真的 access token 才會成功。</p></section><section><h2>LINE Bot AI 入門模板：架構說明</h2>
 <h3>核心檔案</h3>
 <ul>
 <li>app/main.py：FastAPI webhook 入口與 LINE signature 驗證</li>
@@ -97,26 +103,66 @@ curl http://127.0.0.1:8000/health
 <li>每一層保持可以替換：入口、AI provider、資料來源、部署方式。</li>
 <li>範例程式刻意保持小，方便你看懂後改成自己的版本。</li>
 </ul></section><section><h2>LINE Bot AI 入門模板：完整操作流程</h2>
-<h3>步驟</h3>
-<ol>
-<li>先用 AI_PROVIDER=echo 測試 webhook 能收到 LINE 訊息。</li>
-<li>確認 LINE Developers 後台 webhook URL 是 https://你的網域/webhook/line。</li>
-<li>確認 Use webhook 開啟，Auto-reply 關閉或避免干擾測試。</li>
-<li>測試 /ping，確定 reply API 可回覆。</li>
-<li>改成 HTTP LLM 或 CLI provider。</li>
-<li>依情境加上表單、訂單、FAQ 或內部通知流程。</li>
-</ol>
-<h3>建議紀錄</h3>
-<ul>
-<li>你使用的 Python 版本</li>
-<li>啟動指令</li>
-<li>`.env` 裡有哪些 key 已設定；不要貼出 secret 值</li>
-<li>webhook / endpoint URL</li>
-<li>錯誤訊息完整內容</li>
-<li>你預期發生什麼、實際發生什麼</li>
-</ul>
-<h3>下一個里程碑</h3>
-<p>完成最小流程後，不要急著加功能。先找一個真實情境，讓這個 starter 解決一個很小但明確的問題。</p></section><section><h2>LINE Bot AI 入門模板：部署筆記</h2>
+<p class="muted">帶你走一遍：本機跑出 200/403、親手重現 fail-closed、找到回覆邏輯在哪改，最後做一個動手練習看改前改後差異。除了最後上線提醒，全程不需要 LINE 帳號。</p>
+<h3>步驟 1：echo 模式啟動</h3>
+<pre><code>uvicorn app.main:app --reload --port 8000</code></pre>
+<h3>步驟 2：本機模擬簽章驗證</h3>
+<p><code>app/line.py</code> 的 <code>verify_signature</code> 用 channel secret 對 raw body 算 HMAC-SHA256、base64、再常數時間比對。用快速開始那段的 <code>sig_demo.py</code> 即可在本機跑出（真實輸出）：</p>
+<pre><code>[valid signature]   200
+[wrong signature]   403
+[missing signature] 403</code></pre>
+<p>送 <code>{"events": []}</code>（空清單）所以不會觸發回覆，不需要真 token。</p>
+<h3>步驟 3：親手重現 fail-closed</h3>
+<p>沒設 <code>LINE_CHANNEL_SECRET</code> 時，只有 <code>AI_PROVIDER=echo</code> 或 <code>LINE_ALLOW_INSECURE=1</code> 才放行，其餘回 403。對應 <code>app/line.py</code>：</p>
+<pre><code>if not LINE_CHANNEL_SECRET:
+    if AI_PROVIDER == "echo" or os.getenv("LINE_ALLOW_INSECURE") == "1":
+        return True
+    return False</code></pre>
+<p>本機重現的真實輸出：</p>
+<pre><code>secret=(空), AI_PROVIDER=echo, LINE_ALLOW_INSECURE=None -> 200
+secret=(空), AI_PROVIDER=http, LINE_ALLOW_INSECURE=None -> 403
+secret=(空), AI_PROVIDER=http, LINE_ALLOW_INSECURE=1 -> 200</code></pre>
+<p>切到真 provider 又沒 secret 直接 403，這是在保護你。正式上線一定要設真的 <code>LINE_CHANNEL_SECRET</code>。</p>
+<h3>步驟 4：找到回覆邏輯在哪裡</h3>
+<p>bot 收到文字怎麼決定回什麼，全在 <code>app/line.py</code> 的 <code>handle_events</code>：</p>
+<pre><code>text=e["message"]["text"]; reply="pong" if text=="/ping" else await ask_ai(text)
+await reply_text(e["replyToken"], reply[:4500])</code></pre>
+<p>加固定關鍵字回覆 -> 改 <code>app/line.py</code>；改 AI 怎麼回 / 換 provider -> 改 <code>app/ai.py</code>。</p>
+<h3>步驟 5：動手練習 — 加一個關鍵字自動回覆</h3>
+<p>目標：使用者打「營業時間」時直接回固定答案。用一個假的 <code>reply_text</code> 攔截回覆，不需要真 token 就能看 bot 會回什麼。存成 <code>exercise.py</code>：</p>
+<pre><code>import asyncio, os
+os.environ["AI_PROVIDER"] = "echo"; os.environ["LINE_CHANNEL_ACCESS_TOKEN"] = "dummy"
+import app.line as line
+captured = []
+async def fake_reply(token, text): captured.append(text)
+line.reply_text = fake_reply
+async def main():
+    for msg in ["/ping", "hello", "營業時間"]:
+        captured.clear()
+        await line.handle_events({"events":[{"type":"message","replyToken":"TK",
+            "message":{"type":"text","text":msg}}]})
+        print(f"輸入 {msg!r:10} -> 回覆 {captured[0]!r}")
+asyncio.run(main())</code></pre>
+<p>改之前的真實輸出：</p>
+<pre><code>輸入 '/ping'    -> 回覆 'pong'
+輸入 'hello'    -> 回覆 'LINE AI echo: hello'
+輸入 '營業時間'    -> 回覆 'LINE AI echo: 營業時間'</code></pre>
+<p>在 <code>app/line.py</code> 的 <code>handle_events</code> 上面加一張關鍵字表，並讓 handler 先查表：</p>
+<pre><code>KEYWORD_REPLIES = {
+    "/ping": "pong",
+    "營業時間": "我們的營業時間是週一到週五 09:00-18:00。",
+}
+async def handle_events(payload):
+    for e in payload.get("events",[]):
+        if e.get("type")!="message" or e.get("message",{}).get("type")!="text": continue
+        text=e["message"]["text"]
+        reply=KEYWORD_REPLIES[text] if text in KEYWORD_REPLIES else await ask_ai(text)
+        await reply_text(e["replyToken"], reply[:4500])</code></pre>
+<p>再跑一次 <code>python exercise.py</code>，改之後的真實輸出：</p>
+<pre><code>輸入 '/ping'    -> 回覆 'pong'
+輸入 'hello'    -> 回覆 'LINE AI echo: hello'
+輸入 '營業時間'    -> 回覆 '我們的營業時間是週一到週五 09:00-18:00。'</code></pre>
+<p>「營業時間」那行從 echo 變成你的固定答案，其它訊息照舊。練習完成。</p></section><section><h2>LINE Bot AI 入門模板：部署筆記</h2>
 <h3>部署前檢查</h3>
 <ul>
 <li>本機流程已經跑通。</li>
@@ -145,14 +191,22 @@ curl http://127.0.0.1:8000/health
 <p>接著再測真正的業務流程，不要只看服務有沒有啟動。</p>
 <h3>實務提醒</h3>
 <p>部署不是最後一步。正式使用前至少要補：log、錯誤告警、權限控管、備份策略、secret rotation，以及基本監控。</p></section><section><h2>LINE Bot AI 入門模板：常見問題與踩雷清單</h2>
-<h3>常見坑</h3>
-<ul>
-<li>LINE signature 驗證失敗通常是 channel secret 錯、body 被 proxy 改掉、或 webhook URL 指到錯服務。</li>
-<li>LINE replyToken 只能用一次且有效時間短，長任務要改用 push message。</li>
-<li>沒有 LINE_CHANNEL_ACCESS_TOKEN 時，程式可以收 webhook 但無法回覆。</li>
-<li>本機測試 webhook 需要 HTTPS tunnel，例如 Cloudflare Tunnel 或 ngrok。</li>
-<li>正式環境要避免把使用者個資直接送到第三方 LLM。</li>
-</ul>
+<h3>1. 簽章驗證一直 403（明明 secret 是對的）</h3>
+<p>簽章是對 raw body 的 bytes 算的。如果中間有人把 JSON 重新序列化（先 loads 再 dumps、或 proxy 改了空白 / key 順序 / 編碼），算出來的 bytes 跟 LINE 當初簽的不同，HMAC 對不上 -> 403。本 starter 直接拿 <code>await request.body()</code> 原始 bytes 去驗，沒有重序列化。修法：別在驗簽章前動 body，前面的 nginx / Cloudflare 也別改 request body。</p>
+<h3>2. 忘了設 secret，webhook 全被擋（fail-closed）</h3>
+<p>這是刻意的。沒 <code>LINE_CHANNEL_SECRET</code> 時只有 <code>AI_PROVIDER=echo</code> 或 <code>LINE_ALLOW_INSECURE=1</code> 才放行，其餘 403。本機重現（真實輸出）：</p>
+<pre><code>secret=(空), AI_PROVIDER=echo, LINE_ALLOW_INSECURE=None -> 200
+secret=(空), AI_PROVIDER=http, LINE_ALLOW_INSECURE=None -> 403
+secret=(空), AI_PROVIDER=http, LINE_ALLOW_INSECURE=1 -> 200</code></pre>
+<p>修法：正式上線就把真的 <code>LINE_CHANNEL_SECRET</code> 設好。沒密鑰任何人都能偽造 LINE webhook。</p>
+<h3>3. 收得到 webhook，但使用者沒收到回覆（reply 401）</h3>
+<p>uvicorn 顯示 <code>POST /webhook/line ... 200 OK</code> 但 LINE 裡沒回覆。回覆是另一個動作：<code>reply_text</code> 打 <code>POST https://api.line.me/v2/bot/message/reply</code>，帶 <code>Authorization: Bearer &lt;LINE_CHANNEL_ACCESS_TOKEN&gt;</code>。token 沒設 / 設錯 / 過期，LINE 回 401，但 webhook 本身仍是 200，容易被忽略。修法：確認 access token 有效，別把 channel secret 和 access token 貼反。</p>
+<h3>4. ngrok 開了，但 LINE 還是沒打進來</h3>
+<p>常見原因：Webhook URL 沒設或漏了 <code>/webhook/line</code>；Use webhook 沒開；ngrok 網址換了但 console 還指舊網址；ngrok port 跟 uvicorn 不同。修法：用 console 的 Verify 按鈕測 webhook URL，換 ngrok 網址後記得更新。</p>
+<h3>5. replyToken 用過就失效</h3>
+<p>replyToken 只能用一次、時效很短（約一分鐘）。長任務改用 push message（<code>/v2/bot/message/push</code>，以 user id 為對象），不要重複用 replyToken。</p>
+<h3>6. 個資直送第三方 LLM</h3>
+<p>切到 http / claude-cli / gemini-cli provider 後，使用者打的字會原封不動送到外部 LLM。正式前先想清楚哪些能外送，必要時在 <code>app/ai.py</code> 加過濾。</p>
 <h3>Debug 順序</h3>
 <ol>
 <li>先確認服務有沒有啟動。</li>
@@ -215,4 +269,20 @@ curl http://127.0.0.1:8000/health
 <li>GitHub repo：https://github.com/yazelin/linebot-ai-starter</li>
 <li>Email：yaze.lin.j303@gmail.com</li>
 </ul>
-<p>建議你先照公開教學跑一次，然後帶著具體錯誤訊息或想改造的場景來討論，效率最高。</p></section></main><section id="contact"><h2>需要手把手協助？</h2><p>公開文件適合照著跑；工作坊與顧問適合處理你的真實環境、debug、部署、權限與客製化改造。</p><p><a class="btn primary" href="https://yazelin.github.io/linebot-ai-starter/#waitlist">留下 email / 收到開課通知</a></p></section><p class="footer">© Yaze Lin. 教學內容公開於 GitHub，歡迎 fork、star、照著做。</p></div></body></html>
+<p>建議你先照公開教學跑一次，然後帶著具體錯誤訊息或想改造的場景來討論，效率最高。</p></section></main><section id="contact"><h2>需要手把手協助？</h2><p>公開文件適合照著跑；工作坊與顧問適合處理你的真實環境、debug、部署、權限與客製化改造。</p><p><a class="btn primary" href="https://yazelin.github.io/linebot-ai-starter/#waitlist">留下 email / 收到開課通知</a></p></section><section><h2>關於作者 / 延伸資源</h2>
+<h3>關於作者</h3>
+<p>這個範本由 <strong>林亞澤（Yaze Lin）</strong> 維護 — 出身機電自動化系統整合，現在把同一套工程方法用在 AI 產品上。</p>
+<ul>
+<li>任職於 <strong>擎添工業 ChingTech</strong>（1984 年成立的機電自動化公司：PLC 程式、機械手臂、AGV 無人搬運、半導體封測／PCB／面板／光學產線整合）。</li>
+<li>技術筆記與更多範例：<a href="https://yazelin.github.io">yazelin.github.io</a> · GitHub <a href="https://github.com/yazelin">@yazelin</a></li>
+</ul>
+<h3>從範本到正式產品</h3>
+<p>你正在看的 LINE Bot 範本，正式上線版就是 CTOS-Lite / CT JINN。</p>
+<p>如果你想看同樣的想法做成正式、上線中的產品：</p>
+<ul>
+<li><strong>CTOS</strong> — 企業 AI 工作平台：macOS 風格 Web 桌面、知識庫 RAG 檢索、產業專屬 Agent、LINE Bot 整合，資料留在台灣。<a href="https://ching-tech.com">ching-tech.com</a> · <a href="https://ching-tech.github.io">品牌站</a></li>
+<li><strong>CTOS-Lite / CT JINN</strong> — 把公司裝進 LINE 的個人版 AI 助理，加 LINE 即可試用：<a href="https://line.me/R/ti/p/@285fjkky">@285fjkky</a></li>
+<li><strong>Mori Desktop</strong> — 個人 AI 管家桌面應用（Tauri 2 + Rust + React）：<a href="https://github.com/yazelin/mori-desktop">github.com/yazelin/mori-desktop</a></li>
+<li><strong>AgentOS</strong> — 跨 CLI 的 agent 治理平台（開發中）</li>
+</ul>
+<p class="muted">想把這個範本落地成你公司的內部系統，或想上一堂從 0 到部署的課？來信 yaze.lin.j303@gmail.com，或追蹤上面的連結。</p></section><p class="footer">© Yaze Lin. 教學內容公開於 GitHub，歡迎 fork、star、照著做。</p></div></body></html>

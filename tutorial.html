@@ -26,22 +26,40 @@
 <li>企業顧問：需求訪談、PoC、部署、權限、安全與維運規劃。</li>
 </ul></section><section><h2>LINE Bot AI 入門模板：快速開始</h2>
 <p class="muted">本機這一段（安裝、啟動、簽章驗證）完全不需要 LINE 帳號。要讓真的 LINE 使用者收到回覆，才需要你自己的 channel。</p>
-<h3>第一步：取得程式碼並建立虛擬環境</h3>
+<h3>先裝 uv（一次就好）</h3>
+<p>本專案用 uv 管理依賴與虛擬環境（pyproject.toml + uv.lock），不再手動 venv/pip。</p>
+<p>Ubuntu / macOS：</p>
+<pre><code>curl -LsSf https://astral.sh/uv/install.sh | sh</code></pre>
+<p>Windows（PowerShell）：</p>
+<pre><code>powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"</code></pre>
+<p>裝完重開終端機，<code>uv --version</code> 印得出版本就 OK。</p>
+<h3>第一步：取得程式碼並裝依賴</h3>
+<p>以下 <code>uv sync</code> / <code>uv run</code> 在 Ubuntu 與 Windows 完全相同。</p>
 <pre><code>git clone https://github.com/yazelin/linebot-ai-starter.git
 cd linebot-ai-starter
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt</code></pre>
+uv sync</code></pre>
+<p><code>uv sync</code> 會依 pyproject.toml + uv.lock 自動建立 <code>.venv</code> 並裝好套件（毋須手動 venv/activate）。本機實際輸出（節錄）：</p>
+<pre><code>Using CPython 3.11.13
+Creating virtual environment at: .venv
+Resolved 24 packages in 19ms
+Installed 21 packages in 8ms
+ + fastapi==0.115.6
+ + uvicorn==0.34.0
+ + httpx==0.28.1
+ + python-dotenv==1.0.1
+ ...（共 21 個套件）</code></pre>
+<p>加新套件用 <code>uv add &lt;套件&gt;</code>。沒裝 uv 的話 <code>pip install .</code> 也能裝，但本教學以 uv 為主。</p>
 <h3>第二步：準備環境變數</h3>
 <pre><code>cp .env.example .env</code></pre>
 <p>第一次先不要動，保持 <code>AI_PROVIDER=echo</code>。echo 模式不需要任何金鑰，最適合確認整條路通不通。</p>
 <h3>第三步：啟動服務</h3>
-<pre><code>uvicorn app.main:app --reload --port 8000</code></pre>
+<pre><code>uv run uvicorn app.main:app --reload --port 8000</code></pre>
 <p>成功的話你會看到（本機實際輸出）：</p>
 <pre><code>INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)</code></pre>
 <h3>第四步：健康檢查</h3>
 <pre><code>curl http://127.0.0.1:8000/health</code></pre>
+<p class="muted">Windows PowerShell 的 <code>curl</code> 是 Invoke-WebRequest 別名，建議用 <code>curl.exe http://127.0.0.1:8000/health</code> 或 <code>Invoke-RestMethod http://127.0.0.1:8000/health</code>。Ubuntu 用一般 <code>curl</code>。</p>
 <p>成功的話你會看到：</p>
 <pre><code>{"ok":true}</code></pre>
 <h3>第五步：本機模擬簽章驗證（不用 LINE 帳號）</h3>
@@ -60,7 +78,7 @@ good = sign("test_secret_123", body); bad = sign("WRONG_secret", body)
 print("[valid]  ", client.post("/webhook/line", content=body, headers={"X-Line-Signature": good}).status_code)
 print("[wrong]  ", client.post("/webhook/line", content=body, headers={"X-Line-Signature": bad}).status_code)
 print("[missing]", client.post("/webhook/line", content=body).status_code)</code></pre>
-<p>執行 <code>python sig_demo.py</code>，本機模擬簽章驗證的真實輸出（本機模擬，不是真的 LINE 呼叫）：</p>
+<p>執行 <code>uv run python sig_demo.py</code>，本機模擬簽章驗證的真實輸出（本機模擬，不是真的 LINE 呼叫）：</p>
 <pre><code>[valid]   200
 [wrong]   403
 [missing] 403</code></pre>
@@ -105,7 +123,7 @@ print("[missing]", client.post("/webhook/line", content=body).status_code)</code
 </ul></section><section><h2>LINE Bot AI 入門模板：完整操作流程</h2>
 <p class="muted">帶你走一遍：本機跑出 200/403、親手重現 fail-closed、找到回覆邏輯在哪改，最後做一個動手練習看改前改後差異。除了最後上線提醒，全程不需要 LINE 帳號。</p>
 <h3>步驟 1：echo 模式啟動</h3>
-<pre><code>uvicorn app.main:app --reload --port 8000</code></pre>
+<pre><code>uv run uvicorn app.main:app --reload --port 8000</code></pre>
 <h3>步驟 2：本機模擬簽章驗證</h3>
 <p><code>app/line.py</code> 的 <code>verify_signature</code> 用 channel secret 對 raw body 算 HMAC-SHA256、base64、再常數時間比對。用快速開始那段的 <code>sig_demo.py</code> 即可在本機跑出（真實輸出）：</p>
 <pre><code>[valid signature]   200
@@ -173,9 +191,10 @@ async def handle_events(payload):
 </ul>
 <h3>啟動指令</h3>
 <pre><code>
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 </code></pre>
+<p class="muted">部署機同樣先裝 uv、<code>uv sync --frozen --no-dev</code> 裝好鎖定依賴，再用上面指令啟動。Dockerfile 已改為 uv-based build。</p>
 <h3>常見部署選項</h3>
 <ul>
 <li>Render / Railway / Fly.io：適合快速 demo。</li>

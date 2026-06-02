@@ -6,10 +6,10 @@
 
 ## 步驟 1：echo 模式啟動
 
-保持 `.env` 的 `AI_PROVIDER=echo`，啟動：
+保持 `.env` 的 `AI_PROVIDER=echo`，啟動（`uv run` 在 Ubuntu 與 Windows 完全相同）：
 
 ```bash
-uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
 看到這幾行就是起來了：
@@ -65,7 +65,7 @@ print("[wrong signature]  ", client.post("/webhook/line", content=body,
 print("[missing signature]", client.post("/webhook/line", content=body).status_code)
 ```
 
-執行 `python sig_demo.py`，本機模擬簽章驗證的真實輸出：
+執行 `uv run python sig_demo.py`，本機模擬簽章驗證的真實輸出：
 
 ```
 [valid signature]   200
@@ -113,7 +113,7 @@ run("", "http", None)
 run("", "http", "1")
 ```
 
-執行 `python failclosed_demo.py`，真實輸出：
+執行 `uv run python failclosed_demo.py`，真實輸出：
 
 ```
 secret=(空), AI_PROVIDER=echo, LINE_ALLOW_INSECURE=None -> 200
@@ -178,7 +178,7 @@ async def main():
 asyncio.run(main())
 ```
 
-執行 `python exercise.py`，改之前的真實輸出：
+執行 `uv run python exercise.py`，改之前的真實輸出：
 
 ```
 輸入 '/ping'    -> 回覆 'pong'
@@ -209,7 +209,7 @@ async def handle_events(payload):
 
 ### 改完跑出來變這樣
 
-再跑一次 `python exercise.py`，改之後的真實輸出：
+再跑一次 `uv run python exercise.py`，改之後的真實輸出：
 
 ```
 輸入 '/ping'    -> 回覆 'pong'

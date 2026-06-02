@@ -6,31 +6,56 @@
 
 ## 前置需求
 
-- Python 3.10+（本文件用 3.12 實測）
+- uv（Python 套件 / 環境管理器，會自動幫你準備對的 Python）
 - Git
 - 會用終端機
 - 之後要接真實 LINE 才需要：一個 LINE 帳號、LINE Developers console
 
-## 第一步：取得程式碼並建立虛擬環境
+> 本專案用 uv 管理依賴與虛擬環境（pyproject.toml + uv.lock），不再手動 `python -m venv` + `pip`。
+
+### 先裝 uv（一次就好）
+
+Ubuntu / macOS：
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Windows（PowerShell）：
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+裝完重開終端機，`uv --version` 印得出版本就 OK。
+
+## 第一步：取得程式碼並裝依賴
+
+以下 `uv sync` / `uv run` 在 Ubuntu 與 Windows 完全相同。
 
 ```bash
 git clone https://github.com/yazelin/linebot-ai-starter.git
 cd linebot-ai-starter
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+uv sync
 ```
 
-成功的話你會看到 pip 裝完這幾個套件（版本以 `requirements.txt` 為準）：
+`uv sync` 會依 pyproject.toml + uv.lock 自動建立 `.venv` 並裝好套件（毋須手動 venv/activate）。成功的話你會看到（本機實際輸出）：
 
 ```
-fastapi           0.115.6
-uvicorn           0.34.0
-httpx             0.28.1
-python-dotenv     1.0.1
-starlette         0.41.3
-pydantic          2.13.4
+Using CPython 3.11.13
+Creating virtual environment at: .venv
+Resolved 24 packages in 19ms
+Installed 21 packages in 8ms
+ + fastapi==0.115.6
+ + uvicorn==0.34.0
+ + httpx==0.28.1
+ + python-dotenv==1.0.1
+ + starlette==0.41.3
+ + pydantic==2.13.4
+ ...（共 21 個套件）
 ```
+
+之後加新套件用 `uv add <套件>`（會同時更新 pyproject 與 uv.lock）。沒裝 uv 的話 `pip install .` 也能裝，但本教學以 uv 為主。
 
 ## 第二步：準備環境變數
 
@@ -54,7 +79,7 @@ MODEL_NAME=gpt-4o-mini
 ## 第三步：啟動服務
 
 ```bash
-uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
 成功的話你會看到（這是本機實際輸出）：
@@ -73,6 +98,8 @@ INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 ```bash
 curl http://127.0.0.1:8000/health
 ```
+
+> Windows PowerShell 的 `curl` 是 `Invoke-WebRequest` 別名，建議改用 `curl.exe http://127.0.0.1:8000/health` 或 `Invoke-RestMethod http://127.0.0.1:8000/health`。Ubuntu 用一般 `curl` 即可。
 
 成功的話你會看到：
 
@@ -119,10 +146,10 @@ print("[wrong]  ", client.post("/webhook/line", content=body,
 print("[missing]", client.post("/webhook/line", content=body).status_code)
 ```
 
-執行（TestClient 需要 httpx，已在 requirements 內）：
+執行（TestClient 需要 httpx，已在 dependencies 內）：
 
 ```bash
-python sig_demo.py
+uv run python sig_demo.py
 ```
 
 本機模擬簽章驗證的真實輸出：

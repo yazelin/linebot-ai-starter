@@ -11,8 +11,10 @@
 ## 啟動指令
 
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+
+部署機同樣先裝 uv、`uv sync --frozen --no-dev` 裝好鎖定的依賴，再用上面指令啟動。`uv sync` / `uv run` 在 Ubuntu 與 Windows 完全相同；Dockerfile 已改為 uv-based build（見 repo 根目錄）。
 
 ## 常見部署選項
 

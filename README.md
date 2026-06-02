@@ -36,13 +36,36 @@ Teams in Taiwan/Japan that want LINE-based AI workflow assistants.
 
 ## Quick start
 
+本專案用 [uv](https://docs.astral.sh/uv/) 管理依賴與虛擬環境（pyproject.toml + uv.lock）。
+
+先安裝 uv（一次就好）：
+
+Ubuntu / macOS：
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Windows（PowerShell）：
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+裝完重開終端機，`uv --version` 印得出版本就 OK。
+
+取得專案、裝依賴、跑起來（以下 `uv sync` / `uv run` 在 Ubuntu 與 Windows 完全相同）：
+
 ```bash
 git clone https://github.com/yazelin/linebot-ai-starter.git
 cd linebot-ai-starter
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+uv sync
+uv run uvicorn app.main:app --reload --port 8000
 ```
+
+`uv sync` 會依 pyproject.toml + uv.lock 自動建立 `.venv` 並裝好套件（毋須手動 venv/activate）；`uv run` 直接在那個環境裡執行。加新套件用 `uv add <套件>`。
+
+> 沒裝 uv 的話 `pip install .` 也能裝，但本教學以 uv 為主。
 
 See the source files and `.env.example` for the minimal runnable path.
 

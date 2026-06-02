@@ -64,6 +64,24 @@ secret=(空), AI_PROVIDER=http, LINE_ALLOW_INSECURE=1 -> 200
 
 切到 `http` / `claude-cli` / `gemini-cli` provider 後，使用者打的字會原封不動送到外部 LLM。正式環境前先想清楚哪些內容能外送、要不要遮罩，必要時在 `app/ai.py` 加過濾。
 
+## 7. uv 沒裝，或忘了先 `uv sync`
+
+**症狀**：
+
+- `uv: command not found`（Ubuntu）/ `uv 不是內部或外部命令`（Windows）。
+- 或 `uv run ...` 報 `ModuleNotFoundError: No module named 'fastapi'`（或 uvicorn）。
+
+**原因**：
+
+- 第一種：還沒裝 uv，或裝完沒重開終端機（PATH 還沒更新）。
+- 第二種：環境還沒建好就直接 `uv run`。本專案用 pyproject.toml + uv.lock，依賴要先 `uv sync` 才會裝進 `.venv`。
+
+**怎麼修**：
+
+1. 先裝 uv（Ubuntu/macOS：`curl -LsSf https://astral.sh/uv/install.sh | sh`；Windows PowerShell：`powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`），裝完**重開終端機**，`uv --version` 印得出版本即可。
+2. 在 repo 根目錄先跑一次 `uv sync`，看到 `Installed N packages` 後再 `uv run uvicorn app.main:app --reload --port 8000`。
+3. 不用、也不要手動 `source .venv/bin/activate`；`uv run` 會自動用對的環境。`uv sync` / `uv run` 在 Ubuntu 與 Windows 完全相同。
+
 ## Debug 順序
 
 1. 服務有沒有起來：`curl /health` 是不是 `{"ok":true}`。

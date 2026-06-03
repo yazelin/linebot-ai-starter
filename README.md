@@ -22,6 +22,7 @@ A minimal LINE Messaging API bot with AI provider adapters.
 - Markdown 教學：[`docs/`](docs/)
 - 快速開始：[`docs/01-quickstart.md`](docs/01-quickstart.md)
 - 常見踩雷：[`docs/05-common-pitfalls.md`](docs/05-common-pitfalls.md)
+- 後半段(SDK 對照組):docs/08-line-bot-sdk-comparison.md
 
 ## Who this is for
 
@@ -33,6 +34,7 @@ Teams in Taiwan/Japan that want LINE-based AI workflow assistants.
 - Signature verification
 - Echo / Claude CLI / Gemini CLI / HTTP providers
 - Docker-ready
+- 官方 line-bot-sdk 版同功能重寫(optional `sdk` extra)— 見 `docs/08-line-bot-sdk-comparison.md`
 
 ## Quick start
 
@@ -66,6 +68,14 @@ uv run uvicorn app.main:app --reload --port 8000
 `uv sync` 會依 pyproject.toml + uv.lock 自動建立 `.venv` 並裝好套件（毋須手動 venv/activate）；`uv run` 直接在那個環境裡執行。加新套件用 `uv add <套件>`。
 
 > 沒裝 uv 的話 `pip install .` 也能裝，但本教學以 uv 為主。
+
+### 後半段:官方 SDK 版(對照組)
+
+```bash
+uv sync --extra sdk
+PYTHONPATH=. LINEBOT_SMOKE_TARGET=app.main_sdk uv run python parity_smoke_test.py  # 同一份測試也過
+uv run uvicorn app.main_sdk:app   # 啟動 SDK 版
+```
 
 See the source files and `.env.example` for the minimal runnable path.
 

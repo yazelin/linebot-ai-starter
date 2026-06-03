@@ -131,95 +131,87 @@ secret=(空), AI_PROVIDER=http, LINE_ALLOW_INSECURE=1 -> 200
 
 ## 步驟 4：找到「回覆邏輯」在哪裡
 
-bot 收到文字訊息後怎麼決定回什麼，全在 `app/line.py` 的 `handle_events`：
+bot 收到文字訊息後怎麼決定回什麼，集中在 `app/bot.py` 的 `resolve_reply`：
 
 ```python
-async def handle_events(payload):
-    for e in payload.get("events",[]):
-        if e.get("type")!="message" or e.get("message",{}).get("type")!="text": continue
-        text=e["message"]["text"]; reply="pong" if text=="/ping" else await ask_ai(text)
-        await reply_text(e["replyToken"], reply[:4500])
-```
+from .ai import ask_ai
 
-讀法：
-
-- `/ping` 直接回 `pong`。
-- 其他訊息丟給 `ask_ai`（在 `app/ai.py`）。
-- echo 模式下 `ask_ai` 回 `"LINE AI echo: " + text`。
-
-所以「改 bot 怎麼回話」有兩個地方：
-- 想加固定關鍵字回覆 -> 改 `app/line.py` 的 `handle_events`。
-- 想改 AI 怎麼回 / 換 provider -> 改 `app/ai.py` 的 `ask_ai`。
-
-## 步驟 5：動手練習 — 加一個關鍵字自動回覆
-
-目標：使用者打「營業時間」時，直接回固定答案，不要丟給 AI。
-
-### 改之前，先看現狀
-
-我們不需要真的 LINE token 也能看「bot 會回什麼」——把 `reply_text`（真正打 LINE API 的函式）換成一個只記錄文字的假函式即可。存成 `exercise.py`：
-
-```python
-import asyncio, os
-os.environ["AI_PROVIDER"] = "echo"; os.environ["LINE_CHANNEL_ACCESS_TOKEN"] = "dummy"
-import app.line as line
-
-captured = []
-async def fake_reply(token, text): captured.append(text)
-line.reply_text = fake_reply   # 攔截回覆，不真的打 LINE API（那需要真 token）
-
-async def main():
-    for msg in ["/ping", "hello", "營業時間"]:
-        captured.clear()
-        await line.handle_events({"events":[{"type":"message","replyToken":"TK",
-            "message":{"type":"text","text":msg}}]})
-        print(f"輸入 {msg!r:10} -> 回覆 {captured[0]!r}")
-
-asyncio.run(main())
-```
-
-執行 `uv run python exercise.py`，改之前的真實輸出：
-
-```
-輸入 '/ping'    -> 回覆 'pong'
-輸入 'hello'    -> 回覆 'LINE AI echo: hello'
-輸入 '營業時間'    -> 回覆 'LINE AI echo: 營業時間'
-```
-
-「營業時間」現在被當成一般訊息丟給 echo，回了沒用的內容。
-
-### 改成這樣
-
-在 `app/line.py`，把 `handle_events` 上面加一張關鍵字表，並讓 handler 先查表：
-
-```python
-# 關鍵字自動回覆表：訊息文字完全相符時，直接回固定字串，不經過 AI。
 KEYWORD_REPLIES = {
     "/ping": "pong",
     "營業時間": "我們的營業時間是週一到週五 09:00-18:00。",
 }
-async def handle_events(payload):
-    for e in payload.get("events",[]):
-        if e.get("type")!="message" or e.get("message",{}).get("type")!="text": continue
-        text=e["message"]["text"]
-        # 先比對關鍵字表；沒命中才交給 AI provider。
-        reply=KEYWORD_REPLIES[text] if text in KEYWORD_REPLIES else await ask_ai(text)
-        await reply_text(e["replyToken"], reply[:4500])
+
+async def resolve_reply(text: str) -> str:
+    reply = KEYWORD_REPLIES[text] if text in KEYWORD_REPLIES else await ask_ai(text)
+    return reply[:4500]
+```
+
+讀法：
+
+- 先比對 `KEYWORD_REPLIES`，完全相符就回固定字串（例如 `/ping` 回 `pong`、`營業時間` 回營業字串）。
+- 沒命中才丟給 `ask_ai`（在 `app/ai.py`）；echo 模式下 `ask_ai` 回 `"LINE AI echo: " + text`。
+
+`app/line.py` 的 `handle_events` 現在只是薄薄一層：解析事件、呼叫 `resolve_reply`、再用 `reply_text` 送出。把回覆邏輯抽出來的好處，在後半段 `08-line-bot-sdk-comparison.md` 會看到 —— 手刻版與 line-bot-sdk 版**共用同一個 `resolve_reply`**，所以兩種寫法行為完全相同。
+
+所以「改 bot 怎麼回話」有兩個地方：
+- 想加固定關鍵字回覆 -> 改 `app/bot.py` 的 `KEYWORD_REPLIES`。
+- 想改 AI 怎麼回 / 換 provider -> 改 `app/ai.py` 的 `ask_ai`。
+
+## 步驟 5：動手練習 — 加一個關鍵字自動回覆
+
+目標：使用者打「地址」時，直接回固定答案，不要丟給 AI。（`營業時間` 已經內建在 `KEYWORD_REPLIES`，所以我們改用一個還沒內建的關鍵字來練習。）
+
+### 改之前，先看現狀
+
+不需要真的 LINE token 也能看「bot 會回什麼」—— 直接呼叫 `resolve_reply` 即可。存成 `exercise.py`：
+
+```python
+import asyncio, os
+os.environ["AI_PROVIDER"] = "echo"
+from app.bot import resolve_reply
+
+async def main():
+    for msg in ["/ping", "地址", "hello"]:
+        print(f"輸入 {msg!r:8} -> 回覆 {(await resolve_reply(msg))!r}")
+
+asyncio.run(main())
+```
+
+執行 `PYTHONPATH=. uv run python exercise.py`，改之前的真實輸出：
+
+```
+輸入 '/ping'  -> 回覆 'pong'
+輸入 '地址'     -> 回覆 'LINE AI echo: 地址'
+輸入 'hello'  -> 回覆 'LINE AI echo: hello'
+```
+
+「地址」現在被當成一般訊息丟給 echo，回了沒用的內容。
+
+### 改成這樣
+
+在 `app/bot.py` 的 `KEYWORD_REPLIES` 多加一行：
+
+```python
+KEYWORD_REPLIES = {
+    "/ping": "pong",
+    "營業時間": "我們的營業時間是週一到週五 09:00-18:00。",
+    "地址": "我們的地址是台北市信義路五段 7 號。",
+}
 ```
 
 ### 改完跑出來變這樣
 
-再跑一次 `uv run python exercise.py`，改之後的真實輸出：
+再跑一次 `PYTHONPATH=. uv run python exercise.py`，改之後的真實輸出：
 
 ```
-輸入 '/ping'    -> 回覆 'pong'
-輸入 'hello'    -> 回覆 'LINE AI echo: hello'
-輸入 '營業時間'    -> 回覆 '我們的營業時間是週一到週五 09:00-18:00。'
+輸入 '/ping'  -> 回覆 'pong'
+輸入 '地址'     -> 回覆 '我們的地址是台北市信義路五段 7 號。'
+輸入 'hello'  -> 回覆 'LINE AI echo: hello'
 ```
 
-`'營業時間'` 那行從 echo 變成你的固定答案，其它訊息照舊。練習完成。
+`'地址'` 那行從 echo 變成你的固定答案，其它訊息照舊。練習完成。
 
-> 想自己延伸：在 `KEYWORD_REPLIES` 多加幾組（例如 `"地址": "..."`、`"菜單": "..."`），再跑一次 `exercise.py` 確認命中。沒命中的訊息會繼續走 AI，這就是「FAQ 直答 + 其餘問 AI」最小的混合策略。
+> 想自己延伸：在 `KEYWORD_REPLIES` 多加幾組（例如 `"菜單": "..."`），再跑一次。沒命中的訊息會繼續走 AI，這就是「FAQ 直答 + 其餘問 AI」最小的混合策略。因為 `resolve_reply` 是兩版共用的，你加的關鍵字在手刻版與 line-bot-sdk 版都會生效。
 
 ## 要讓真的 LINE 使用者收到（需要你的 channel）
 

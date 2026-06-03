@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        track: [handrolled, sdk]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      # handrolled track: base deps, hand-rolled LINE integration
+      - name: Sync (handrolled)
+        if: matrix.track == 'handrolled'
+        run: uv sync
+      - name: Parity smoke against hand-rolled app
+        if: matrix.track == 'handrolled'
+        run: PYTHONPATH=. uv run python parity_smoke_test.py
+
+      # sdk track: installs the extra, same parity test + bonus
+      - name: Sync with sdk extra
+        if: matrix.track == 'sdk'
+        run: uv sync --extra sdk
+      - name: Parity smoke against SDK app
+        if: matrix.track == 'sdk'
+        env:
+          LINEBOT_SMOKE_TARGET: app.main_sdk
+        run: PYTHONPATH=. uv run python parity_smoke_test.py
+      - name: SDK Quick Reply bonus check
+        if: matrix.track == 'sdk'
+        run: PYTHONPATH=. uv run python bonus_smoke_test_sdk.py

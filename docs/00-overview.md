@@ -2,6 +2,15 @@
 
 把 LINE 官方帳號或群組變成可接 AI、可接資料、可部署的工作流入口。
 
+## 兩軌:先手刻、再 SDK
+
+這份教材分兩段:
+
+- **前半段(`01`、`03`)** — 從零手刻 LINE 整合:HMAC 簽章驗證、webhook 事件解析、Reply API,看懂協定本身。
+- **後半段(`08`)** — 用官方 **line-bot-sdk** 重寫同樣的功能當對照組,體會「同樣的事,SDK 少寫一大截」,並認識 Quick Reply 等 typed 富訊息。
+
+先手刻看懂底層,再用 SDK 拿生產力 —— 你會更清楚框架替你做了什麼、又沒替你做什麼(你的 bot 邏輯 `resolve_reply` 永遠是你自己的)。
+
 ## 適合誰
 
 想用 LINE 做客服、訂單、點餐、內部通知或群組助理的台灣團隊。
@@ -21,6 +30,7 @@
 4. 準備部署時看 `04-deployment.md`。
 5. 卡住時先查 `05-common-pitfalls.md`。
 6. 想改成自己的場景，看 `06-customize-for-your-use-case.md`。
+7. 看 `08-line-bot-sdk-comparison.md`，用官方 SDK 重寫的對照組 + Quick Reply 紅利。
 
 ## 免費與付費怎麼分
 

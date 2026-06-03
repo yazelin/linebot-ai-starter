@@ -142,45 +142,35 @@ secret=(空), AI_PROVIDER=http, LINE_ALLOW_INSECURE=None -> 403
 secret=(空), AI_PROVIDER=http, LINE_ALLOW_INSECURE=1 -> 200</code></pre>
 <p>切到真 provider 又沒 secret 直接 403，這是在保護你。正式上線一定要設真的 <code>LINE_CHANNEL_SECRET</code>。</p>
 <h3>步驟 4：找到回覆邏輯在哪裡</h3>
-<p>bot 收到文字怎麼決定回什麼，全在 <code>app/line.py</code> 的 <code>handle_events</code>：</p>
-<pre><code>text=e["message"]["text"]; reply="pong" if text=="/ping" else await ask_ai(text)
-await reply_text(e["replyToken"], reply[:4500])</code></pre>
-<p>加固定關鍵字回覆 -> 改 <code>app/line.py</code>；改 AI 怎麼回 / 換 provider -> 改 <code>app/ai.py</code>。</p>
+<p>bot 收到文字怎麼決定回什麼，集中在 <code>app/bot.py</code> 的 <code>resolve_reply</code>：</p>
+<pre><code>async def resolve_reply(text: str) -> str:
+    reply = KEYWORD_REPLIES[text] if text in KEYWORD_REPLIES else await ask_ai(text)
+    return reply[:4500]</code></pre>
+<p>先查 <code>KEYWORD_REPLIES</code> 命中就回固定字串，沒命中才丟 <code>ask_ai</code>。<code>app/line.py</code> 的 <code>handle_events</code> 現在只是薄層，呼叫 <code>resolve_reply</code> —— 手刻版與 line-bot-sdk 版共用同一個 <code>resolve_reply</code>（見下方 Part 2）。加固定關鍵字回覆 -> 改 <code>app/bot.py</code> 的 <code>KEYWORD_REPLIES</code>；改 AI 怎麼回 / 換 provider -> 改 <code>app/ai.py</code>。</p>
 <h3>步驟 5：動手練習 — 加一個關鍵字自動回覆</h3>
-<p>目標：使用者打「營業時間」時直接回固定答案。用一個假的 <code>reply_text</code> 攔截回覆，不需要真 token 就能看 bot 會回什麼。存成 <code>exercise.py</code>：</p>
+<p>目標：使用者打「地址」時直接回固定答案（<code>營業時間</code> 已內建，改用還沒內建的關鍵字練習）。直接呼叫 <code>resolve_reply</code>，不需要真 token。存成 <code>exercise.py</code>：</p>
 <pre><code>import asyncio, os
-os.environ["AI_PROVIDER"] = "echo"; os.environ["LINE_CHANNEL_ACCESS_TOKEN"] = "dummy"
-import app.line as line
-captured = []
-async def fake_reply(token, text): captured.append(text)
-line.reply_text = fake_reply
+os.environ["AI_PROVIDER"] = "echo"
+from app.bot import resolve_reply
 async def main():
-    for msg in ["/ping", "hello", "營業時間"]:
-        captured.clear()
-        await line.handle_events({"events":[{"type":"message","replyToken":"TK",
-            "message":{"type":"text","text":msg}}]})
-        print(f"輸入 {msg!r:10} -> 回覆 {captured[0]!r}")
+    for msg in ["/ping", "地址", "hello"]:
+        print(f"輸入 {msg!r:8} -> 回覆 {(await resolve_reply(msg))!r}")
 asyncio.run(main())</code></pre>
-<p>改之前的真實輸出：</p>
-<pre><code>輸入 '/ping'    -> 回覆 'pong'
-輸入 'hello'    -> 回覆 'LINE AI echo: hello'
-輸入 '營業時間'    -> 回覆 'LINE AI echo: 營業時間'</code></pre>
-<p>在 <code>app/line.py</code> 的 <code>handle_events</code> 上面加一張關鍵字表，並讓 handler 先查表：</p>
+<p>執行 <code>PYTHONPATH=. uv run python exercise.py</code>，改之前的真實輸出：</p>
+<pre><code>輸入 '/ping'  -> 回覆 'pong'
+輸入 '地址'     -> 回覆 'LINE AI echo: 地址'
+輸入 'hello'  -> 回覆 'LINE AI echo: hello'</code></pre>
+<p>在 <code>app/bot.py</code> 的 <code>KEYWORD_REPLIES</code> 多加一行：</p>
 <pre><code>KEYWORD_REPLIES = {
     "/ping": "pong",
     "營業時間": "我們的營業時間是週一到週五 09:00-18:00。",
-}
-async def handle_events(payload):
-    for e in payload.get("events",[]):
-        if e.get("type")!="message" or e.get("message",{}).get("type")!="text": continue
-        text=e["message"]["text"]
-        reply=KEYWORD_REPLIES[text] if text in KEYWORD_REPLIES else await ask_ai(text)
-        await reply_text(e["replyToken"], reply[:4500])</code></pre>
-<p>再跑一次 <code>python exercise.py</code>，改之後的真實輸出：</p>
-<pre><code>輸入 '/ping'    -> 回覆 'pong'
-輸入 'hello'    -> 回覆 'LINE AI echo: hello'
-輸入 '營業時間'    -> 回覆 '我們的營業時間是週一到週五 09:00-18:00。'</code></pre>
-<p>「營業時間」那行從 echo 變成你的固定答案，其它訊息照舊。練習完成。</p></section><section><h2>LINE Bot AI 入門模板：部署筆記</h2>
+    "地址": "我們的地址是台北市信義路五段 7 號。",
+}</code></pre>
+<p>再跑一次，改之後的真實輸出：</p>
+<pre><code>輸入 '/ping'  -> 回覆 'pong'
+輸入 '地址'     -> 回覆 '我們的地址是台北市信義路五段 7 號。'
+輸入 'hello'  -> 回覆 'LINE AI echo: hello'</code></pre>
+<p>「地址」那行從 echo 變成你的固定答案，其它訊息照舊。練習完成。</p></section><section><h2>LINE Bot AI 入門模板：部署筆記</h2>
 <h3>部署前檢查</h3>
 <ul>
 <li>本機流程已經跑通。</li>

@@ -2,10 +2,12 @@
 
 ## 核心檔案
 
-- app/main.py：FastAPI webhook 入口與 LINE signature 驗證
-- app/line.py：處理 LINE events、reply API
+- app/main.py：FastAPI webhook 入口與 LINE signature 驗證（手刻版）
+- app/line.py：手刻版的 LINE events 解析、reply API（薄層，回覆邏輯委派給 app/bot.py）
+- app/bot.py：共用回覆邏輯 `resolve_reply`（關鍵字表 + AI），手刻版與 line-bot-sdk 版共用
 - app/ai.py：AI provider adapter，支援 echo / claude-cli / gemini-cli / HTTP API
-- app/config.py：從 .env 載入 token 與模型設定
+- app/config.py：從 .env 載入 token 與模型設定（含 LINE_API_BASE）
+- app/line_sdk.py、app/main_sdk.py：後半段 line-bot-sdk 版（見 08-line-bot-sdk-comparison.md），用 `uvicorn app.main_sdk:app` 啟動
 
 ## 資料流
 

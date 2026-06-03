@@ -28,6 +28,7 @@
 - Reply API 範例，能直接回覆使用者訊息
 - AI provider adapter，可換 Claude / Gemini / HTTP API
 - 適合延伸點餐、客服、表單、公司通知流程
+- 內建官方 SDK 對照組(後半段 `docs/08`):同功能用 line-bot-sdk 重寫,示範 Quick Reply 等 typed 富訊息
 
 ## Assets
 

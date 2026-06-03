@@ -11,6 +11,7 @@ from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from linebot.v3.messaging import (
     Configuration, AsyncApiClient, AsyncMessagingApi, ReplyMessageRequest, TextMessage,
+    QuickReply, QuickReplyItem, MessageAction,
 )
 
 _parser = WebhookParser(LINE_CHANNEL_SECRET) if LINE_CHANNEL_SECRET else None
@@ -38,6 +39,21 @@ def _extract_events(body: str, signature: str):
             if isinstance(ev, MessageEvent) and isinstance(ev.message, TextMessageContent)]
 
 
+# BONUS (SDK-only): a typed Quick Reply. Hand-rolling this means assembling the
+# nested quickReply JSON by hand; the SDK builds it from typed objects in a few
+# lines. This is an awareness example of what the framework gives you for free.
+_BONUS_KEYWORD = "選單"
+
+def _quick_reply_message() -> TextMessage:
+    return TextMessage(
+        text="請選擇:",
+        quick_reply=QuickReply(items=[
+            QuickReplyItem(action=MessageAction(label="營業時間", text="營業時間")),
+            QuickReplyItem(action=MessageAction(label="Ping", text="/ping")),
+        ]),
+    )
+
+
 async def process_webhook(raw_body: bytes, signature: str) -> None:
     events = _extract_events(raw_body.decode(), signature)
     if not events:
@@ -46,7 +62,8 @@ async def process_webhook(raw_body: bytes, signature: str) -> None:
     async with AsyncApiClient(config) as api_client:
         api = AsyncMessagingApi(api_client)
         for text, token in events:
-            reply = await resolve_reply(text)
-            await api.reply_message(
-                ReplyMessageRequest(reply_token=token, messages=[TextMessage(text=reply)])
-            )
+            if text == _BONUS_KEYWORD:
+                message = _quick_reply_message()
+            else:
+                message = TextMessage(text=await resolve_reply(text))
+            await api.reply_message(ReplyMessageRequest(reply_token=token, messages=[message]))

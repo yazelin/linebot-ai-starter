@@ -351,7 +351,10 @@ await api.reply_message(ReplyMessageRequest(
 <p>對照手刻版:你不用自己算 HMAC、不用 raw dict 取值、不用記 Reply API 的 URL 與 JSON 形狀。唯一「不變」的是 <code>resolve_reply</code> —— 那是你的 bot 邏輯,框架不會替你寫。</p>
 <h3>步驟 3:跑同一份 parity 測試</h3>
 <p>關鍵設計:<code>parity_smoke_test.py</code> 用 <code>LINEBOT_SMOKE_TARGET</code> 切換 <code>app.main</code>(手刻)或 <code>app.main_sdk</code>(SDK),同一組斷言對兩邊都過 —— 證明行為完全相同。它用一個本地假 LINE server 接住兩版送出的 Reply,再比對內容。</p>
-<pre><code>LINEBOT_SMOKE_TARGET=app.main_sdk uv run python parity_smoke_test.py</code></pre>
+<pre><code># SDK 版
+PYTHONPATH=. LINEBOT_SMOKE_TARGET=app.main_sdk uv run python parity_smoke_test.py
+# 手刻版(預設)
+PYTHONPATH=. uv run python parity_smoke_test.py</code></pre>
 <p>兩邊都會收尾 <code>OK: parity checks passed (target=...)</code>:有效簽章 + <code>/ping</code> → 回 <code>pong</code>、<code>營業時間</code> → 回營業字串、其他 → <code>LINE AI echo: ...</code>、無效簽章 → 403 且不送 reply。同樣的行為,兩種寫法。</p>
 <h3>步驟 4:SDK 才給得起的紅利 —— Quick Reply</h3>
 <p>手刻版只能回純文字(要回按鈕選單,得自己拼一坨巢狀 <code>quickReply</code> JSON)。SDK 用 typed 物件幾行搞定。傳 <code>選單</code> 給 SDK 版會回帶按鈕的 Quick Reply:</p>

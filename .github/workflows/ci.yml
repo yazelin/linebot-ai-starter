@@ -23,6 +23,9 @@ jobs:
       - name: Parity smoke against hand-rolled app
         if: matrix.track == 'handrolled'
         run: PYTHONPATH=. uv run python parity_smoke_test.py
+      - name: No-secret fail-closed check (hand-rolled)
+        if: matrix.track == 'handrolled'
+        run: PYTHONPATH=. uv run python nosecret_smoke_test.py
 
       # sdk track: installs the extra, same parity test + bonus
       - name: Sync with sdk extra
@@ -36,3 +39,8 @@ jobs:
       - name: SDK Quick Reply bonus check
         if: matrix.track == 'sdk'
         run: PYTHONPATH=. uv run python bonus_smoke_test_sdk.py
+      - name: No-secret fail-closed check (SDK)
+        if: matrix.track == 'sdk'
+        env:
+          LINEBOT_SMOKE_TARGET: app.main_sdk
+        run: PYTHONPATH=. uv run python nosecret_smoke_test.py
